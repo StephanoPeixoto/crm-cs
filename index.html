@@ -36,70 +36,38 @@ th, td {
     border-bottom: 1px solid #333;
     padding: 10px;
 }
-.status {
-    font-weight: bold;
-}
-.aprovado { color: #00ff88; }
-.pendente { color: orange; }
 </style>
 </head>
 <body>
 
 <h1>Fluxo Serviços A7</h1>
 
-<div id="auth">
-    <h3>Login</h3>
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Senha">
-    <button onclick="login()">Entrar</button>
-</div>
+<h3>Nova Tarefa</h3>
+<input id="client" placeholder="Cliente">
+<input id="task" placeholder="Tarefa">
+<input id="owner" placeholder="Responsável">
+<input id="due_date" type="date">
+<input id="link" placeholder="Link">
+<button onclick="addTask()">Adicionar</button>
 
-<div id="app" style="display:none;">
-    <h3>Nova Tarefa</h3>
-    <input id="client" placeholder="Cliente">
-    <input id="task" placeholder="Tarefa">
-    <input id="owner" placeholder="Responsável">
-    <input id="due_date" type="date">
-    <input id="link" placeholder="Link">
-    <button onclick="addTask()">Adicionar</button>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Cliente</th>
-                <th>Tarefa</th>
-                <th>Responsável</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody id="tasks"></tbody>
-    </table>
-</div>
+<table>
+<thead>
+<tr>
+<th>Cliente</th>
+<th>Tarefa</th>
+<th>Responsável</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="tasks"></tbody>
+</table>
 
 <script>
-// 🔴 COLE AQUI SUAS CHAVES
+
 const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+const SUPABASE_ANON_KEY = "COLE_SUA_PUBLISHABLE_AQUI";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-async function login() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-    });
-
-    if (error) {
-        alert("Erro no login");
-    } else {
-        document.getElementById("auth").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        loadTasks();
-    }
-}
 
 async function addTask() {
     const client = document.getElementById("client").value;
@@ -122,19 +90,19 @@ async function loadTasks() {
     table.innerHTML = "";
 
     data.forEach(t => {
-        const row = `
+        table.innerHTML += `
             <tr>
                 <td>${t.client}</td>
                 <td>${t.task}</td>
                 <td>${t.owner}</td>
-                <td class="status ${t.done ? 'aprovado' : 'pendente'}">
-                    ${t.done ? 'Concluído' : 'Pendente'}
-                </td>
+                <td>${t.done ? 'Concluído' : 'Pendente'}</td>
             </tr>
         `;
-        table.innerHTML += row;
     });
 }
+
+loadTasks();
+
 </script>
 
 </body>
