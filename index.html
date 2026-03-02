@@ -343,20 +343,22 @@ async function cloudLoad() {
       .from("a7_storage")
       .select("tasks,posts,updated_at")
       .eq("id", CLOUD_ID)
-      .single();
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    // Se NÃO existe registro na tabela ainda, não sobrescreve o que já está local
+    const row = (Array.isArray(data) && data.length) ? data[0] : null;
+// Se NÃO existe registro na tabela ainda, não sobrescreve o que já está local
     if (error) {
-      if (error.code === "PGRST116") return false; // "No rows found"
+      if (error.code === "PGRST116") return false; // Sem registro (ou retorno inesperado)
       console.error(error);
       toast("Erro ao carregar da nuvem");
       return false;
     }
-    if (!data) return false;
+    if (!row) return false;
 
     // Aplica apenas se vier algo válido
-    if (Array.isArray(data.tasks)) tasks = data.tasks;
-    if (Array.isArray(data.posts)) posts = data.posts;
+    if (Array.isArray(row.tasks)) tasks = row.tasks;
+    if (Array.isArray(row.posts)) posts = row.posts;
 
     // Espelha no navegador pra ficar estável mesmo se a nuvem falhar depois
     try{
