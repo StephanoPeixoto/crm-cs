@@ -100,6 +100,7 @@
     .note-btn:hover{border-color:rgba(212,175,55,.55)}
 
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="wrap">
@@ -303,15 +304,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_PASSWORD = "troque-esta-senha"; // <-- MUDE AQUI
+const APP_PASSWORD = ""; // login desativado (sem senha por enquanto)
 
 const KEY_TASKS = "a7_cs_tasks_v6";
 const KEY_POSTS = "a7_social_posts_v6";
 const KEY_SESSION = "a7_session_ok_v1";
 
-let tasks = JSON.parse(localStorage.getItem(KEY_TASKS) || "[]");
-let posts = JSON.parse(localStorage.getItem(KEY_POSTS) || "[]");
-
+let tasks = [];
+let posts = [];
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 function toast(msg){
@@ -328,27 +328,60 @@ function showSection(id){
   document.getElementById("tabTasks").classList.toggle("active", id==="tasks");
   document.getElementById("tabCalendar").classList.toggle("active", id==="calendar");
 }
-function save(){
-  localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
-  localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
+function save(){ /* storage local desativado (usando Supabase) */ }
+
+/* Supabase (Realtime) */
+const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR"; // chave pública (ok expor no front)
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function refreshTasks(){
+  const { data, error } = await supabase
+    .from("a7_tasks")
+    .select("*")
+    .order("createdAt", { ascending: false });
+  if(error){ console.error(error); toast("Erro ao carregar tarefas"); return; }
+  tasks = (data || []);
+  renderTasks();
+}
+async function refreshPosts(){
+  const { data, error } = await supabase
+    .from("a7_posts")
+    .select("*")
+    .order("createdAt", { ascending: false });
+  if(error){ console.error(error); toast("Erro ao carregar agenda"); return; }
+  posts = (data || []);
+  renderPosts();
+}
+let _reloading = false;
+async function refreshAll(){
+  if(_reloading) return;
+  _reloading = true;
+  await Promise.all([refreshTasks(), refreshPosts()]);
+  _reloading = false;
 }
 
-/* Login */
-function isAuthed(){ return localStorage.getItem(KEY_SESSION) === "1"; }
 function requireLogin(){
+  // sem login: sempre libera
   const overlay = document.getElementById("loginOverlay");
   const logoutBtn = document.getElementById("logoutBtn");
-  if(isAuthed()){ overlay.style.display="none"; logoutBtn.style.display="inline-block"; }
-  else{ overlay.style.display="flex"; logoutBtn.style.display="none"; setTimeout(()=>document.getElementById("pwd").focus(),50); }
+  if(overlay) overlay.style.display = "none";
+  if(logoutBtn) logoutBtn.style.display = "none";
 }
-function login(){
-  const p = document.getElementById("pwd").value;
-  if(p === APP_PASSWORD){ localStorage.setItem(KEY_SESSION,"1"); document.getElementById("pwd").value=""; toast("Bem-vindo ✅"); requireLogin(); }
-  else toast("Senha errada ❌");
+function login(){ requireLogin(); }
+function logout(){ /* sem login */ }
+
+async function bootRealtime(){
+  // carrega dados iniciais
+  await refreshAll();
+
+  // escuta mudanças em tempo real (precisa Realtime ligado nas tabelas)
+  supabase
+    .channel("a7-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "a7_tasks" }, () => refreshTasks())
+    .on("postgres_changes", { event: "*", schema: "public", table: "a7_posts" }, () => refreshPosts())
+    .subscribe();
 }
-function logout(){ localStorage.removeItem(KEY_SESSION); toast("Saiu 🔒"); requireLogin(); }
-document.getElementById("logoutBtn").addEventListener("click", logout);
-function hint(){ alert("Dica: mude a senha editando a linha APP_PASSWORD dentro do index.html"); }
 
 /* Tasks */
 function clearTaskForm(){
@@ -359,28 +392,30 @@ function clearTaskForm(){
   document.getElementById("taskLink").value="";
   toast("Campos limpos");
 }
-function addTask(){
+async function addTask(){
   const client=document.getElementById("client").value.trim();
   const task=document.getElementById("task").value.trim();
   const owner=document.getElementById("owner").value.trim();
   const date=document.getElementById("taskDate").value||null;
   const link=document.getElementById("taskLink").value.trim();
   if(!client||!task||!owner){ toast("Preencha cliente, tarefa e responsável"); return; }
-  tasks.push({id:uid(),client,task,owner,date,link,done:false,createdAt:new Date().toISOString()});
-  save(); clearTaskForm(); toast("Tarefa adicionada ✅"); renderTasks();
+
+  const payload = { id: uid(), client, task, owner, date, link, done:false, createdAt:new Date().toISOString() };
+  const { data, error } = await supabase.from("a7_tasks").insert([payload]).select("*").single();
+  if(error){ console.error(error); toast("Erro ao salvar tarefa"); return; }
+
+  clearTaskForm(); toast("Tarefa adicionada ✅");
+  // atualiza lista (e garante ordem)
+  tasks.unshift(data);
+  renderTasks();
 }
-function toggleTask(id){ const t=tasks.find(x=>x.id===id); if(!t) return; t.done=!t.done; save(); renderTasks(); }
-function delTask(id){ if(!confirm("Excluir esta tarefa?")) return; tasks=tasks.filter(x=>x.id!==id); save(); renderTasks(); }
-function editTask(id){
+async function toggleTask(id){
   const t=tasks.find(x=>x.id===id); if(!t) return;
-  const client=prompt("Cliente:",t.client); if(client===null) return;
-  const task=prompt("Tarefa:",t.task); if(task===null) return;
-  const owner=prompt("Responsável:",t.owner); if(owner===null) return;
-  const date=prompt("Data (AAAA-MM-DD) ou vazio:",t.date||""); if(date===null) return;
-  const link=prompt("Link (pode vazio):",t.link||""); if(link===null) return;
-  t.client=client.trim()||t.client; t.task=task.trim()||t.task; t.owner=owner.trim()||t.owner;
-  t.date=date.trim()?date.trim():null; t.link=link.trim();
-  save(); toast("Atualizado ✍️"); renderTasks();
+  const nextDone = !t.done;
+  const { error } = await supabase.from("a7_tasks").update({ done: nextDone }).eq("id", id);
+  if(error){ console.error(error); toast("Erro ao atualizar"); return; }
+  t.done = nextDone;
+  renderTasks();
 }
 function renderTasks(){
   const q=(document.getElementById("taskSearch").value||"").toLowerCase();
@@ -435,7 +470,7 @@ function clearPostForm(){
   document.getElementById("postNotes").value="";
   toast("Campos limpos");
 }
-function addPost(){
+async function addPost(){
   const client=document.getElementById("postClient").value.trim();
   const date=document.getElementById("date").value;
   const platform=document.getElementById("platform").value;
@@ -443,29 +478,29 @@ function addPost(){
   const link=document.getElementById("postLink").value.trim();
   const notes=document.getElementById("postNotes").value.trim();
   if(!client||!date||!platform||!owner){ toast("Preencha cliente, dia, rede e responsável"); return; }
-  posts.push({id:uid(),client,date,platform,owner,link,notes,approved:false,approval_note:"",done:false,createdAt:new Date().toISOString()});
-  save(); clearPostForm(); toast("Post agendado 🗓️"); renderPosts();
+
+  const payload = { id: uid(), client, date, platform, owner, link, notes, approved:false, approval_note:"", done:false, createdAt:new Date().toISOString() };
+  const { data, error } = await supabase.from("a7_posts").insert([payload]).select("*").single();
+  if(error){ console.error(error); toast("Erro ao salvar post"); return; }
+
+  clearPostForm(); toast("Post agendado 🗓️");
+  posts.unshift(data);
+  renderPosts();
 }
-function togglePostDone(id){ const p=posts.find(x=>x.id===id); if(!p) return; p.done=!p.done; save(); renderPosts(); }
-function togglePostApproved(id){ const p=posts.find(x=>x.id===id); if(!p) return; p.approved=!p.approved; save(); renderPosts(); }
-function editApprovalNote(id){
+async function togglePostDone(id){
   const p=posts.find(x=>x.id===id); if(!p) return;
-  const next=prompt("Observação de aprovação:", p.approval_note||"");
-  if(next===null) return;
-  p.approval_note = next.trim();
-  save(); toast("Observação salva ✍️"); renderPosts();
+  const nextDone = !p.done;
+  const { error } = await supabase.from("a7_posts").update({ done: nextDone }).eq("id", id);
+  if(error){ console.error(error); toast("Erro ao atualizar"); return; }
+  p.done = nextDone;
+  renderPosts();
 }
-function delPost(id){ if(!confirm("Excluir este post da agenda?")) return; posts=posts.filter(x=>x.id!==id); save(); renderPosts(); }
-function editPost(id){
-  const p=posts.find(x=>x.id===id); if(!p) return;
-  const client=prompt("Cliente:", p.client||""); if(client===null) return;
-  const date=prompt("Dia (AAAA-MM-DD):",p.date); if(date===null) return;
-  const platform=prompt("Rede:",p.platform); if(platform===null) return;
-  const owner=prompt("Responsável:",p.owner); if(owner===null) return;
-  const link=prompt("Link (pode vazio):",p.link||""); if(link===null) return;
-  const notes=prompt("Observação (pode vazio):",p.notes||""); if(notes===null) return;
-  p.client=client.trim()||p.client; p.date=date.trim()||p.date; p.platform=platform.trim()||p.platform; p.owner=owner.trim()||p.owner; p.link=link.trim(); p.notes=notes.trim();
-  save(); toast("Agenda atualizada ✍️"); renderPosts();
+async function delPost(id){
+  if(!confirm("Excluir este post da agenda?")) return;
+  const { error } = await supabase.from("a7_posts").delete().eq("id", id);
+  if(error){ console.error(error); toast("Erro ao excluir"); return; }
+  posts=posts.filter(x=>x.id!==id);
+  renderPosts();
 }
 function withinRange(dateISO, range){
   if(range==="all") return true;
@@ -582,10 +617,8 @@ function todayISO(){
   return `${y}-${m}-${d}`;
 }
 
-renderTasks();
-renderPosts();
 requireLogin();
-document.getElementById("pwd").addEventListener("keydown", (e)=>{ if(e.key === "Enter") login(); });
+bootRealtime();
 </script>
 </body>
 </html>
