@@ -1,17 +1,27 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
 <script>
   const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
-  let supabase = null;
-if(SUPABASE_URL && SUPABASE_ANON_KEY){
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}else{
-  console.warn("Supabase URL/Anon Key não configurados. Salvamento em nuvem desativado.");
-}
-</script>
+
+  // ✅ Validação: evita criar client com placeholders (isso causa erro ao carregar da nuvem)
+  const _isPlaceholder = (v) => !v || String(v).includes("COLE_AQUI");
+  const _isValidUrl = (u) => typeof u === "string" && u.startsWith("https://") && u.includes(".supabaseClient.co");
+  const _isValidAnon = (k) => typeof k === "string" && k.length > 100 && k.startsWith("eyJ");
+
+  let supabaseClient = null;
+  if (!_isPlaceholder(SUPABASE_URL) && !_isPlaceholder(SUPABASE_ANON_KEY) && _isValidUrl(SUPABASE_URL) && _isValidAnon(SUPABASE_ANON_KEY)) {
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) {
+      console.warn("Falha ao iniciar Supabase. Nuvem desativada.", e);
+      supabaseClient = null;
+    }
+  } else {
+    console.warn("Supabase não configurado corretamente (URL/Anon Key). Nuvem desativada.");
+  }</script>
 
 
   <meta charset="utf-8" />
@@ -336,27 +346,24 @@ async function cloudLoad() {
   try { posts = JSON.parse(localStorage.getItem(KEY_POSTS) || "[]"); } catch(e){ posts = []; }
 
   // 2) Se não tiver Supabase configurado, para aqui
-  if(!supabase) return false;
+  if(!supabaseClient) return false;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("a7_storage")
-     .select("tasks,posts")
-.eq("id", CLOUD_ID)
-.limit(1);
+      .select("tasks,posts,updated_at")
+      .eq("id", CLOUD_ID)
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
     const row = (Array.isArray(data) && data.length) ? data[0] : null;
 // Se NÃO existe registro na tabela ainda, não sobrescreve o que já está local
-   if (error) {
-  console.error("cloudLoad error:", error);
-
-  // Se for só "não achou registro", não é erro
-  if (error.code === "PGRST116") return false;
-
-  // Se for RLS/permissão, o erro vai vir aqui e a gente resolve com policy
-  toast(`Erro nuvem: ${error.message || error.code || "desconhecido"}`);
-  return false;
-}
+    if (error) {
+      if (error.code === "PGRST116") return false; // Sem registro (ou retorno inesperado)
+      console.error(error);
+      toast("Erro ao carregar da nuvem");
+      return false;
+    }
     if (!row) return false;
 
     // Aplica apenas se vier algo válido
@@ -385,10 +392,10 @@ async function cloudSave() {
     localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
     localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
   }catch(e){}
-  if(!supabase) return;
+  if(!supabaseClient) return;
   const payload = { tasks, posts, updated_at: new Date().toISOString() };
 
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from("a7_storage")
     .upsert({ id: CLOUD_ID, ...payload }, { onConflict: "id" });
 
@@ -672,7 +679,7 @@ function todayISO(){
   const loadedFromCloud = await cloudLoad();
 
   // Se não tinha nada na nuvem ainda, cria o registro a partir do que está no navegador
-  if (supabase && !loadedFromCloud) {
+  if (supabaseClient && !loadedFromCloud) {
     try { await cloudSave(); } catch(e){}
   }
 
