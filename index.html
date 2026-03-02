@@ -341,19 +341,22 @@ async function cloudLoad() {
   try {
     const { data, error } = await supabase
       .from("a7_storage")
-      .select("tasks,posts,updated_at")
-      .eq("id", CLOUD_ID)
-      .order("updated_at", { ascending: false })
-      .limit(1);
+     .select("tasks,posts")
+.eq("id", CLOUD_ID)
+.limit(1);
 
     const row = (Array.isArray(data) && data.length) ? data[0] : null;
 // Se NÃO existe registro na tabela ainda, não sobrescreve o que já está local
-    if (error) {
-      if (error.code === "PGRST116") return false; // Sem registro (ou retorno inesperado)
-      console.error(error);
-      toast("Erro ao carregar da nuvem");
-      return false;
-    }
+   if (error) {
+  console.error("cloudLoad error:", error);
+
+  // Se for só "não achou registro", não é erro
+  if (error.code === "PGRST116") return false;
+
+  // Se for RLS/permissão, o erro vai vir aqui e a gente resolve com policy
+  toast(`Erro nuvem: ${error.message || error.code || "desconhecido"}`);
+  return false;
+}
     if (!row) return false;
 
     // Aplica apenas se vier algo válido
