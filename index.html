@@ -127,6 +127,30 @@
 </style>
 </head>
 <body>
+
+<!-- PIN Gate -->
+<div id="pinOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:99999; align-items:center; justify-content:center; padding:24px;">
+  <div style="width:min(420px, 100%); background:#0b0f19; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:22px; box-shadow:0 24px 80px rgba(0,0,0,.55);">
+    <div style="font-size:18px; font-weight:700; margin-bottom:6px; color:#fff;">Acesso rápido</div>
+    <div style="opacity:.85; margin-bottom:14px; color:#cbd5e1; font-size:13px;">Digite o PIN para entrar.</div>
+
+    <div style="display:flex; gap:10px;">
+      <input id="pinInput" inputmode="numeric" autocomplete="one-time-code" placeholder="PIN (ex: 1234)"
+        style="flex:1; padding:12px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.14); background:#0f172a; color:#fff; outline:none;" />
+      <button id="pinBtn"
+        style="padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.14); background:#111827; color:#fff; cursor:pointer; font-weight:600;">
+        Entrar
+      </button>
+    </div>
+    <div id="pinMsg" style="margin-top:10px; color:#fca5a5; font-size:12px; display:none;">PIN inválido.</div>
+
+    <div style="margin-top:16px; opacity:.6; color:#cbd5e1; font-size:11px;">
+      * Esse PIN é só uma “trava” simples no navegador (não é segurança real).
+    </div>
+  </div>
+</div>
+
+
 <div class="wrap">
   <div class="topbar">
     <div>
@@ -674,8 +698,9 @@ function todayISO(){
   return `${y}-${m}-${d}`;
 }
 
-(async () => {
-  // Carrega do navegador e, se configurado, tenta sincronizar com o Supabase
+
+async function bootApp() {
+// Carrega do navegador e, se configurado, tenta sincronizar com o Supabase
   const loadedFromCloud = await cloudLoad();
 
   // Se não tinha nada na nuvem ainda, cria o registro a partir do que está no navegador
@@ -686,8 +711,63 @@ function todayISO(){
   renderTasks();
   renderPosts();
   requireLogin();
+}
+
+let __booted = false;
+async function startAppOnce() {
+  if (__booted) return;
+  __booted = true;
+  await bootApp();
+}
+
+(function setupPinGate(){
+  const PIN = "1234";
+  const overlay = document.getElementById("pinOverlay");
+  const input = document.getElementById("pinInput");
+  const btn = document.getElementById("pinBtn");
+  const msg = document.getElementById("pinMsg");
+
+  function show() {
+    if (!overlay) return;
+    overlay.style.display = "flex";
+    setTimeout(()=> input && input.focus(), 50);
+  }
+  function hide() {
+    if (!overlay) return;
+    overlay.style.display = "none";
+  }
+  function ok() {
+    sessionStorage.setItem("pin_ok", "1");
+    hide();
+    startAppOnce();
+  }
+  function fail() {
+    if (msg) msg.style.display = "block";
+    if (input) {
+      input.value = "";
+      input.focus();
+      input.style.borderColor = "rgba(248,113,113,.9)";
+      setTimeout(()=> input.style.borderColor = "rgba(255,255,255,.14)", 400);
+    }
+  }
+  function submit() {
+    const v = (input?.value || "").trim();
+    if (v === PIN) ok(); else fail();
+  }
+
+  btn?.addEventListener("click", submit);
+  input?.addEventListener("keydown", (e)=>{ if (e.key === "Enter") submit(); });
+
+  // Start:
+  if (sessionStorage.getItem("pin_ok") === "1") {
+    hide();
+    startAppOnce();
+  } else {
+    show();
+  }
 })();
-document.getElementById("pwd").addEventListener("keydown", (e)=>{ if(e.key === "Enter") login(); });
+
+try{ const __pwd=document.getElementById("pwd"); __pwd && __pwd.addEventListener("keydown",(e)=>{ if(e.key==="Enter") login(); }); }catch(e){}
 </script>
 </body>
 </html>
