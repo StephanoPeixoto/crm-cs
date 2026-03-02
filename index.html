@@ -1,13 +1,19 @@
 <!doctype html>
 <html lang="pt-BR">
+<head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = "COLE_AQUI_SUA_PROJECT_URL";
-  const SUPABASE_ANON_KEY = "COLE_AQUI_SUA_ANON_KEY";
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+  let supabase = null;
+if(SUPABASE_URL && SUPABASE_ANON_KEY){
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}else{
+  console.warn("Supabase URL/Anon Key não configurados. Salvamento em nuvem desativado.");
+}
 </script>
-cloudLoad();
-<head>
+
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Fluxo Serviços A7</title>
@@ -106,7 +112,9 @@ cloudLoad();
     .pill{background:rgba(255,255,255,.03)}
     .note-btn:hover{border-color:rgba(212,175,55,.55)}
 
-  </style>
+  
+#loginOverlay{display:none !important;}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -310,7 +318,8 @@ cloudLoad();
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_PASSWORD = "troque-esta-senha"; // <-- MUDE AQUI
+const APP_PASSWORD = ""; // login desativado
+const AUTH_DISABLED = true; // <-- MUDE AQUI
 
 const KEY_TASKS = "a7_cs_tasks_v6";
 const KEY_POSTS = "a7_social_posts_v6";
@@ -322,6 +331,15 @@ let posts = [];
 const CLOUD_ID = "main";
 
 async function cloudLoad() {
+  if(!supabase){
+    // fallback local
+    try{
+      tasks = JSON.parse(localStorage.getItem(KEY_TASKS) || "[]");
+      posts = JSON.parse(localStorage.getItem(KEY_POSTS) || "[]");
+      try { render(); } catch(e) {}
+    }catch(e){}
+    return;
+  }
   const { data, error } = await supabase
     .from("a7_storage")
     .select("tasks, posts")
@@ -329,6 +347,13 @@ async function cloudLoad() {
     .single();
 
   if (error) {
+    // Se ainda não existe registro na tabela, inicia vazio sem bloquear
+    if (error.code === "PGRST116" || error.details?.includes("Results contain 0 rows")) {
+      tasks = [];
+      posts = [];
+      try { render(); } catch(e) {}
+      return;
+    }
     console.error(error);
     toast("Erro ao carregar da nuvem");
     return;
@@ -346,12 +371,17 @@ async function cloudLoad() {
 let saveTimer = null;
 
 async function cloudSave() {
+  // salva local sempre
+  try{
+    localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
+    localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
+  }catch(e){}
+  if(!supabase) return;
   const payload = { tasks, posts, updated_at: new Date().toISOString() };
 
   const { error } = await supabase
     .from("a7_storage")
-    .update(payload)
-    .eq("id", CLOUD_ID);
+    .upsert({ id: CLOUD_ID, ...payload }, { onConflict: "id" });
 
   if (error) {
     console.error(error);
@@ -383,21 +413,17 @@ function save(){
 }
 
 
-/* Login */
-function isAuthed(){ return localStorage.getItem(KEY_SESSION) === "1"; }
+/* Login (DESATIVADO) */
+function isAuthed(){ return true; }
 function requireLogin(){
   const overlay = document.getElementById("loginOverlay");
   const logoutBtn = document.getElementById("logoutBtn");
-  if(isAuthed()){ overlay.style.display="none"; logoutBtn.style.display="inline-block"; }
-  else{ overlay.style.display="flex"; logoutBtn.style.display="none"; setTimeout(()=>document.getElementById("pwd").focus(),50); }
+  if(overlay) overlay.style.display="none";
+  if(logoutBtn) logoutBtn.style.display="none";
 }
-function login(){
-  const p = document.getElementById("pwd").value;
-  if(p === APP_PASSWORD){ localStorage.setItem(KEY_SESSION,"1"); document.getElementById("pwd").value=""; toast("Bem-vindo ✅"); requireLogin(); }
-  else toast("Senha errada ❌");
-}
-function logout(){ localStorage.removeItem(KEY_SESSION); toast("Saiu 🔒"); requireLogin(); }
-document.getElementById("logoutBtn").addEventListener("click", logout);
+function login(){ requireLogin(); }
+function logout(){ /* noop */ }
+try{ document.getElementById("logoutBtn")?.addEventListener("click", logout); }catch(e){};
 function hint(){ alert("Dica: mude a senha editando a linha APP_PASSWORD dentro do index.html"); }
 
 /* Tasks */
