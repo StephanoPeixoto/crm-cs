@@ -2,26 +2,31 @@
 <html lang="pt-BR">
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  // ✅ COLE AQUI os dados do Supabase (Project Settings > API)
   const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
 
-  // ✅ Validação: evita criar client com placeholders (isso causa erro ao carregar da nuvem)
-  const _isPlaceholder = (v) => !v || String(v).includes("COLE_AQUI");
-  const _isValidUrl = (u) => typeof u === "string" && u.startsWith("https://") && u.includes(".supabaseClient.co");
+  // ✅ Validações corretas
+  const _isPlaceholder = (v) => !v || String(v).includes("COLE_AQUI") || String(v).includes("SEU-PROJETO");
+  const _isValidUrl = (u) => typeof u === "string" && u.startsWith("https://") && u.includes(".supabase.co");
   const _isValidAnon = (k) => typeof k === "string" && k.length > 100 && k.startsWith("eyJ");
 
   let supabaseClient = null;
+
   if (!_isPlaceholder(SUPABASE_URL) && !_isPlaceholder(SUPABASE_ANON_KEY) && _isValidUrl(SUPABASE_URL) && _isValidAnon(SUPABASE_ANON_KEY)) {
     try {
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log("✅ Supabase conectado.");
     } catch (e) {
-      console.warn("Falha ao iniciar Supabase. Nuvem desativada.", e);
+      console.warn("⚠️ Falha ao iniciar Supabase. Nuvem desativada.", e);
       supabaseClient = null;
     }
   } else {
-    console.warn("Supabase não configurado corretamente (URL/Anon Key). Nuvem desativada.");
-  }</script>
+    console.warn("⚠️ Supabase não configurado corretamente (URL/Anon Key). Nuvem desativada.");
+  }
+</script>
 
 
   <meta charset="utf-8" />
