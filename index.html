@@ -3,8 +3,8 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+  const SUPABASE_URL = "COLE_AQUI_SUA_PROJECT_URL";
+  const SUPABASE_ANON_KEY = "COLE_AQUI_SUA_ANON_KEY";
   let supabase = null;
 if(SUPABASE_URL && SUPABASE_ANON_KEY){
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -331,41 +331,45 @@ let posts = [];
 const CLOUD_ID = "main";
 
 async function cloudLoad() {
-  if(!supabase){
-    // fallback local
-    try{
-      tasks = JSON.parse(localStorage.getItem(KEY_TASKS) || "[]");
-      posts = JSON.parse(localStorage.getItem(KEY_POSTS) || "[]");
-      try { render(); } catch(e) {}
-    }catch(e){}
-    return;
-  }
-  const { data, error } = await supabase
-    .from("a7_storage")
-    .select("tasks, posts")
-    .eq("id", CLOUD_ID)
-    .single();
+  // 1) Sempre tenta carregar do navegador primeiro (pra não perder nada)
+  try { tasks = JSON.parse(localStorage.getItem(KEY_TASKS) || "[]"); } catch(e){ tasks = []; }
+  try { posts = JSON.parse(localStorage.getItem(KEY_POSTS) || "[]"); } catch(e){ posts = []; }
 
-  if (error) {
-    // Se ainda não existe registro na tabela, inicia vazio sem bloquear
-    if (error.code === "PGRST116" || error.details?.includes("Results contain 0 rows")) {
-      tasks = [];
-      posts = [];
-      try { render(); } catch(e) {}
-      return;
+  // 2) Se não tiver Supabase configurado, para aqui
+  if(!supabase) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from("a7_storage")
+      .select("tasks,posts,updated_at")
+      .eq("id", CLOUD_ID)
+      .single();
+
+    // Se NÃO existe registro na tabela ainda, não sobrescreve o que já está local
+    if (error) {
+      if (error.code === "PGRST116") return false; // "No rows found"
+      console.error(error);
+      toast("Erro ao carregar da nuvem");
+      return false;
     }
-    console.error(error);
+    if (!data) return false;
+
+    // Aplica apenas se vier algo válido
+    if (Array.isArray(data.tasks)) tasks = data.tasks;
+    if (Array.isArray(data.posts)) posts = data.posts;
+
+    // Espelha no navegador pra ficar estável mesmo se a nuvem falhar depois
+    try{
+      localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
+      localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
+    }catch(e){}
+
+    return true;
+  } catch (e) {
+    console.error(e);
     toast("Erro ao carregar da nuvem");
-    return;
+    return false;
   }
-
-  tasks = data?.tasks || [];
-  posts = data?.posts || [];
-
-  // se você tiver funções de render, chame aqui:
-  // renderTasks(); renderPosts(); updateUI();
-  // Se não tiver, só dá refresh geral:
-  try { render(); } catch(e) {}
 }
 
 let saveTimer = null;
@@ -658,9 +662,19 @@ function todayISO(){
   return `${y}-${m}-${d}`;
 }
 
-renderTasks();
-renderPosts();
-requireLogin();
+(async () => {
+  // Carrega do navegador e, se configurado, tenta sincronizar com o Supabase
+  const loadedFromCloud = await cloudLoad();
+
+  // Se não tinha nada na nuvem ainda, cria o registro a partir do que está no navegador
+  if (supabase && !loadedFromCloud) {
+    try { await cloudSave(); } catch(e){}
+  }
+
+  renderTasks();
+  renderPosts();
+  requireLogin();
+})();
 document.getElementById("pwd").addEventListener("keydown", (e)=>{ if(e.key === "Enter") login(); });
 </script>
 </body>
