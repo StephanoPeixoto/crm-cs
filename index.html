@@ -337,18 +337,18 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function refreshTasks(){
   const { data, error } = await supabase
-    .from("a7_tasks")
+    .from("tasks")
     .select("*")
-    .order("createdAt", { ascending: false });
+    .order("created_at", { ascending: false });
   if(error){ console.error(error); toast("Erro ao carregar tarefas"); return; }
   tasks = (data || []);
   renderTasks();
 }
 async function refreshPosts(){
   const { data, error } = await supabase
-    .from("a7_posts")
+    .from("posts")
     .select("*")
-    .order("createdAt", { ascending: false });
+    .order("created_at", { ascending: false });
   if(error){ console.error(error); toast("Erro ao carregar agenda"); return; }
   posts = (data || []);
   renderPosts();
@@ -378,8 +378,8 @@ async function bootRealtime(){
   // escuta mudanças em tempo real (precisa Realtime ligado nas tabelas)
   supabase
     .channel("a7-realtime")
-    .on("postgres_changes", { event: "*", schema: "public", table: "a7_tasks" }, () => refreshTasks())
-    .on("postgres_changes", { event: "*", schema: "public", table: "a7_posts" }, () => refreshPosts())
+    .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => refreshTasks())
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => refreshPosts())
     .subscribe();
 }
 
@@ -400,8 +400,8 @@ async function addTask(){
   const link=document.getElementById("taskLink").value.trim();
   if(!client||!task||!owner){ toast("Preencha cliente, tarefa e responsável"); return; }
 
-  const payload = { id: uid(), client, task, owner, date, link, done:false, createdAt:new Date().toISOString() };
-  const { data, error } = await supabase.from("a7_tasks").insert([payload]).select("*").single();
+  const payload = { id: uid(), client, task, owner, due_date: date, link, done:false, created_at:new Date().toISOString() };
+  const { data, error } = await supabase.from("tasks").insert([payload]).select("*").single();
   if(error){ console.error(error); toast("Erro ao salvar tarefa"); return; }
 
   clearTaskForm(); toast("Tarefa adicionada ✅");
@@ -412,7 +412,7 @@ async function addTask(){
 async function toggleTask(id){
   const t=tasks.find(x=>x.id===id); if(!t) return;
   const nextDone = !t.done;
-  const { error } = await supabase.from("a7_tasks").update({ done: nextDone }).eq("id", id);
+  const { error } = await supabase.from("tasks").update({ done: nextDone }).eq("id", id);
   if(error){ console.error(error); toast("Erro ao atualizar"); return; }
   t.done = nextDone;
   renderTasks();
@@ -425,7 +425,7 @@ function renderTasks(){
   if(q) list=list.filter(t=>(t.client||"").toLowerCase().includes(q)||(t.task||"").toLowerCase().includes(q));
   if(ownerQ) list=list.filter(t=>(t.owner||"").toLowerCase().includes(ownerQ));
   if(status!=="all") list=list.filter(t=>status==="done"?t.done:!t.done);
-  list.sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; const ad=a.date||"9999-12-31", bd=b.date||"9999-12-31"; if(ad!==bd) return ad.localeCompare(bd); return (b.createdAt||"").localeCompare(a.createdAt||""); });
+  list.sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; const ad=a.due_date||"9999-12-31", bd=b.due_date||"9999-12-31"; if(ad!==bd) return ad.localeCompare(bd); return (b.createdAt||"").localeCompare(a.createdAt||""); });
   document.getElementById("taskMeta").textContent=`${list.length} tarefa(s) • Total: ${tasks.length}`;
   const tbody=document.getElementById("taskList"); tbody.innerHTML="";
   if(list.length===0){ tbody.innerHTML=`<tr><td colspan="7" style="color:#94a3b8">Sem tarefas no filtro atual.</td></tr>`; return; }
@@ -437,7 +437,7 @@ function renderTasks(){
         <td><b>${escapeHtml(t.client)}</b></td>
         <td>${escapeHtml(t.task)}</td>
         <td>${escapeHtml(t.owner)}</td>
-        <td>${t.date?formatDate(t.date):"—"}</td>
+        <td>${t.due_date?formatDate(t.due_date):"—"}</td>
         <td>${linkCell}</td>
         <td>${statusPill}</td>
         <td><div class="mini">
@@ -479,8 +479,8 @@ async function addPost(){
   const notes=document.getElementById("postNotes").value.trim();
   if(!client||!date||!platform||!owner){ toast("Preencha cliente, dia, rede e responsável"); return; }
 
-  const payload = { id: uid(), client, date, platform, owner, link, notes, approved:false, approval_note:"", done:false, createdAt:new Date().toISOString() };
-  const { data, error } = await supabase.from("a7_posts").insert([payload]).select("*").single();
+  const payload = { id: uid(), client, date, platform, owner, link, notes, approved:false, approval_note:"", done:false, created_at:new Date().toISOString() };
+  const { data, error } = await supabase.from("posts").insert([payload]).select("*").single();
   if(error){ console.error(error); toast("Erro ao salvar post"); return; }
 
   clearPostForm(); toast("Post agendado 🗓️");
@@ -490,14 +490,14 @@ async function addPost(){
 async function togglePostDone(id){
   const p=posts.find(x=>x.id===id); if(!p) return;
   const nextDone = !p.done;
-  const { error } = await supabase.from("a7_posts").update({ done: nextDone }).eq("id", id);
+  const { error } = await supabase.from("posts").update({ done: nextDone }).eq("id", id);
   if(error){ console.error(error); toast("Erro ao atualizar"); return; }
   p.done = nextDone;
   renderPosts();
 }
 async function delPost(id){
   if(!confirm("Excluir este post da agenda?")) return;
-  const { error } = await supabase.from("a7_posts").delete().eq("id", id);
+  const { error } = await supabase.from("posts").delete().eq("id", id);
   if(error){ console.error(error); toast("Erro ao excluir"); return; }
   posts=posts.filter(x=>x.id!==id);
   renderPosts();
