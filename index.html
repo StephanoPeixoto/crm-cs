@@ -3,19 +3,36 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  // ✅ COLE AQUI os dados do Supabase (Project Settings > API)
-  const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+<!-- Supabase JS v2 (CORRETO) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  // ✅ Validações corretas
-  const _isPlaceholder = (v) => !v || String(v).includes("COLE_AQUI") || String(v).includes("SEU-PROJETO");
-  const _isValidUrl = (u) => typeof u === "string" && u.startsWith("https://") && u.includes(".supabase.co");
-  const _isValidAnon = (k) => typeof k === "string" && k.length > 100 && k.startsWith("eyJ");
+<script>
+  // ✅ Cole aqui os dados do Supabase (Project Settings > API)
+  const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+  
+  // ✅ Validações corretas (aceita anon JWT "eyJ..." e também "sb_..." se for seu caso)
+  const _isPlaceholder = (v) =>
+    !v || String(v).includes("COLE_AQUI") || String(v).includes("SEU-PROJETO");
+
+  const _isValidUrl = (u) =>
+    typeof u === "string" &&
+    u.startsWith("https://") &&
+    u.includes(".supabase.co");
+
+ const _isValidKey = (k) =>
+  typeof k === "string" &&
+  k.length > 20 &&
+  (k.startsWith("eyJ") || k.startsWith("sb_"));
 
   let supabaseClient = null;
 
-  if (!_isPlaceholder(SUPABASE_URL) && !_isPlaceholder(SUPABASE_ANON_KEY) && _isValidUrl(SUPABASE_URL) && _isValidAnon(SUPABASE_ANON_KEY)) {
+  if (
+    !_isPlaceholder(SUPABASE_URL) &&
+    !_isPlaceholder(SUPABASE_ANON_KEY) &&
+    _isValidUrl(SUPABASE_URL) &&
+    _isValidKey(SUPABASE_ANON_KEY)
+  ) {
     try {
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       console.log("✅ Supabase conectado.");
@@ -24,7 +41,7 @@
       supabaseClient = null;
     }
   } else {
-    console.warn("⚠️ Supabase não configurado corretamente (URL/Anon Key). Nuvem desativada.");
+    console.warn("⚠️ Supabase não configurado corretamente (URL/Key). Nuvem desativada.");
   }
 </script>
 
