@@ -1,50 +1,13 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<script src="https://cdn.jsdelivr.net/npm/@supabaseClient/supabaseClient-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Supabase JS v2 (CORRETO) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
-  // ✅ Cole aqui os dados do Supabase (Project Settings > API)
   const SUPABASE_URL = "https://llkzmbuaoxvaadnhfwhq.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
+  const SUPABASE_ANON_KEY = "sb_publishable_8P0JjWli7v-F2ofwxP1xPw_74gRyEhR";
 
-  console.log("Supabase client:", supabase);
-  
-  // ✅ Validações corretas (aceita anon JWT "eyJ..." e também "sb_..." se for seu caso)
-  const _isPlaceholder = (v) =>
-    !v || String(v).includes("COLE_AQUI") || String(v).includes("SEU-PROJETO");
-
-  const _isValidUrl = (u) =>
-    typeof u === "string" &&
-    u.startsWith("https://") &&
-    u.includes(".supabase.co");
-
- const _isValidKey = (k) =>
-  typeof k === "string" &&
-  k.length > 20 &&
-  (k.startsWith("eyJ") || k.startsWith("sb_"));
-
-  let supabaseClient = null;
-
-  if (
-    !_isPlaceholder(SUPABASE_URL) &&
-    !_isPlaceholder(SUPABASE_ANON_KEY) &&
-    _isValidUrl(SUPABASE_URL) &&
-    _isValidKey(SUPABASE_ANON_KEY)
-  ) {
-    try {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log("✅ Supabase conectado.");
-    } catch (e) {
-      console.warn("⚠️ Falha ao iniciar Supabase. Nuvem desativada.", e);
-      supabaseClient = null;
-    }
-  } else {
-    console.warn("⚠️ Supabase não configurado corretamente (URL/Key). Nuvem desativada.");
-  }
+  window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log("✅ Supabase carregou e conectou");
 </script>
 
 
