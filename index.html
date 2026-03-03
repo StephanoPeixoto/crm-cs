@@ -537,17 +537,7 @@ function save(){
     cloudSave();
   }, 300);
 }
-const KEY_CLIENTES = "crm_clientes_v1";
 
-
-function loadClientes(){
-  try{
-    const raw = localStorage.getItem(KEY_CLIENTES);
-    clientes = raw ? JSON.parse(raw) : [];
-  }catch(e){
-    clientes = [];
-  }
-}
 
 function toNumberBR(v){
   if(!v) return 0;
@@ -642,7 +632,7 @@ function salvarOuAtualizarCliente(){
       updated_at: new Date().toISOString()
     };
 
-    saveClientes();
+    save();
     renderClientes();
     limparClienteForm();
     editingClienteId = null;
@@ -668,7 +658,7 @@ function salvarOuAtualizarCliente(){
   };
 
   clientes.unshift(cliente);
-  saveClientes();
+  save();
   renderClientes();
   limparClienteForm();
 
@@ -679,14 +669,14 @@ function toggleStatusCliente(id){
   const c = clientes.find(x => x.id === id);
   if(!c) return;
   c.status = (c.status === "ativo") ? "inativo" : "ativo";
-  saveClientes();
+  save();
   renderClientes();
 }
 
 function removerCliente(id){
   if(!confirm("Remover este cliente? (isso apaga o histórico dele)")) return;
   clientes = clientes.filter(x => x.id !== id);
-  saveClientes();
+  save();
   renderClientes();
 }
 
@@ -789,7 +779,6 @@ function escapeHtml(str){
 
 // Inicializa ao abrir a página
 (function initClientes(){
-  loadClientes();
   renderClientes();
 })();
 /* Login (DESATIVADO) */
