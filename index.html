@@ -442,6 +442,7 @@ const KEY_SESSION = "a7_session_ok_v1";
 
 let tasks = [];
 let posts = [];
+let clientes = [];
 
 const CLOUD_ID = "main";
 
@@ -456,7 +457,7 @@ async function cloudLoad() {
   try {
     const { data, error } = await supabaseClient
       .from("a7_storage")
-      .select("tasks,posts,updated_at")
+      .select("tasks,posts,clientes,updated_at")
       .eq("id", CLOUD_ID)
       .order("updated_at", { ascending: false })
       .limit(1);
@@ -474,13 +475,14 @@ async function cloudLoad() {
     // Aplica apenas se vier algo válido
     if (Array.isArray(row.tasks)) tasks = row.tasks;
     if (Array.isArray(row.posts)) posts = row.posts;
+    if (Array.isArray(row.clientes)) clientes = row.clientes;
 
     // Espelha no navegador pra ficar estável mesmo se a nuvem falhar depois
     try{
       localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
       localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
     }catch(e){}
-
+renderClientes();
     return true;
   } catch (e) {
     console.error(e);
@@ -498,7 +500,7 @@ async function cloudSave() {
     localStorage.setItem(KEY_POSTS, JSON.stringify(posts));
   }catch(e){}
   if(!supabaseClient) return;
-  const payload = { tasks, posts, updated_at: new Date().toISOString() };
+  const payload = { tasks, posts, clientes, updated_at: new Date().toISOString() };
 
   const { error } = await supabaseClient
     .from("a7_storage")
@@ -536,7 +538,7 @@ function save(){
   }, 300);
 }
 const KEY_CLIENTES = "crm_clientes_v1";
-let clientes = [];
+
 
 function loadClientes(){
   try{
