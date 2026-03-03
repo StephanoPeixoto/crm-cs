@@ -151,10 +151,11 @@
     </div>
   </div>
 
-  <div class="tabs">
-    <button id="tabTasks" class="active" type="button" onclick="showSection('tasks')"> CS (Serviços)</button>
-    <button id="tabCalendar" type="button" onclick="showSection('calendar')"> Rede Social</button>
-  </div>
+ <div class="tabs">
+  <button id="tabTasks" class="active" type="button" onclick="showSection('tasks')"> CS (Serviços)</button>
+  <button id="tabCalendar" type="button" onclick="showSection('calendar')"> Rede Social</button>
+  <button id="tabClientes" type="button" onclick="showSection('clientes')"> Clientes</button>
+</div>
 
   <section id="tasks" class="stack">
     <div class="card">
@@ -319,6 +320,99 @@
   </section>
 </div>
 
+<section id="clientes" class="stack" style="display:none;">
+
+  <!-- RESUMO -->
+  <div class="card">
+    <div class="body" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="sub">Total mensal (somente ATIVOS)</div>
+        <h2 id="total_mensal_ativos">R$ 0</h2>
+      </div>
+      <div class="pill">📌 Recorrência</div>
+    </div>
+  </div>
+
+  <!-- NOVO CLIENTE -->
+  <div class="card">
+    <h2>Novo Cliente</h2>
+    <div class="body">
+
+      <label>Nome do cliente</label>
+      <input id="cliente_nome" placeholder="Ex: HM Premium" />
+
+      <div class="row">
+        <div>
+          <label>Telefone</label>
+          <input id="cliente_telefone" placeholder="Ex: (48) 99999-9999" />
+        </div>
+        <div>
+          <label>Responsável</label>
+          <input id="cliente_responsavel" placeholder="Ex: Stephano" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Status</label>
+          <select id="cliente_status">
+            <option value="ativo" selected>Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+        <div>
+          <label>Mensalidade (R$)</label>
+          <input id="cliente_mensal" inputmode="decimal" placeholder="Ex: 5000" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Instagram</label>
+          <input id="cliente_instagram" placeholder="Ex: @hm.premium" />
+        </div>
+        <div>
+          <label>Site (opcional)</label>
+          <input id="cliente_site" placeholder="Ex: https://empresa.com" />
+        </div>
+      </div>
+
+      <label>OBS</label>
+      <textarea id="cliente_obs" placeholder="Anotações importantes, preferências, horários, etc."></textarea>
+
+      <div class="actions">
+        <button class="btn primary" type="button" onclick="salvarOuAtualizarCliente()" id="btnSalvarCliente">Salvar</button>
+        <button class="btn" type="button" onclick="limparClienteForm()">Limpar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="card">
+    <h2>Clientes cadastrados</h2>
+    <div class="body">
+      <div class="row">
+        <div>
+          <label>Buscar</label>
+          <input id="clienteSearch" placeholder="Digite nome/instagram/responsável..." oninput="renderClientes()" />
+        </div>
+        <div>
+          <label>Filtro</label>
+          <select id="clienteFiltro" onchange="renderClientes()">
+            <option value="todos" selected>Todos</option>
+            <option value="ativo">Somente Ativos</option>
+            <option value="inativo">Somente Inativos</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="lista_clientes" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+</section>
+
 <div class="overlay" id="loginOverlay" style="display:none">
   <div class="login">
     <h3>🔒 Acesso protegido</h3>
@@ -427,10 +521,13 @@ function toast(msg){
 function uid(){ return (crypto?.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2) + Date.now())); }
 
 function showSection(id){
-  document.getElementById("tasks").style.display = (id==="tasks") ? "grid" : "none";
+  document.getElementById("tasks").style.display    = (id==="tasks") ? "grid" : "none";
   document.getElementById("calendar").style.display = (id==="calendar") ? "grid" : "none";
+  document.getElementById("clientes").style.display = (id==="clientes") ? "grid" : "none";
+
   document.getElementById("tabTasks").classList.toggle("active", id==="tasks");
   document.getElementById("tabCalendar").classList.toggle("active", id==="calendar");
+  document.getElementById("tabClientes").classList.toggle("active", id==="clientes");
 }
 function save(){
   clearTimeout(saveTimer);
@@ -438,8 +535,265 @@ function save(){
     cloudSave();
   }, 300);
 }
+const KEY_CLIENTES = "crm_clientes_v1";
+let clientes = [];
 
+function loadClientes(){
+  try{
+    const raw = localStorage.getItem(KEY_CLIENTES);
+    clientes = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    clientes = [];
+  }
+}
 
+function saveClientes(){
+  localStorage.setItem(KEY_CLIENTES, JSON.stringify(clientes));
+}
+
+function toNumberBR(v){
+  if(!v) return 0;
+  // aceita "5.000,50" / "5000,50" / "5000.50" / "5000"
+  const s = String(v).trim()
+    .replace(/\s/g,"")
+    .replace(/\./g,"")
+    .replace(",",".")
+    .replace(/[^0-9.]/g,"");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatBRL(n){
+  try{
+    return n.toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+  }catch(e){
+    return "R$ " + (Math.round(n*100)/100);
+  }
+}
+
+function limparClienteForm(){
+  document.getElementById("cliente_nome").value = "";
+  document.getElementById("cliente_telefone").value = "";
+  document.getElementById("cliente_responsavel").value = "";
+  document.getElementById("cliente_status").value = "ativo";
+  document.getElementById("cliente_mensal").value = "";
+  document.getElementById("cliente_instagram").value = "";
+  document.getElementById("cliente_site").value = "";
+  document.getElementById("cliente_obs").value = "";
+}
+
+let editingClienteId = null;
+function editarCliente(id){
+  const c = clientes.find(x => x.id === id);
+  if(!c){
+    alert("Cliente não encontrado.");
+    return;
+  }
+
+  editingClienteId = id;
+
+  document.getElementById("cliente_nome").value = c.nome || "";
+  document.getElementById("cliente_telefone").value = c.telefone || "";
+  document.getElementById("cliente_responsavel").value = c.responsavel || "";
+  document.getElementById("cliente_status").value = c.status || "ativo";
+  document.getElementById("cliente_mensal").value = (c.mensal ?? "");
+  document.getElementById("cliente_instagram").value = c.instagram || "";
+  document.getElementById("cliente_site").value = c.site || "";
+  document.getElementById("cliente_obs").value = c.obs || "";
+
+  const btn = document.getElementById("btnSalvarCliente");
+  if(btn) btn.textContent = "Atualizar";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function salvarOuAtualizarCliente(){
+
+  const nome = document.getElementById("cliente_nome").value.trim();
+  const telefone = document.getElementById("cliente_telefone").value.trim();
+  const responsavel = document.getElementById("cliente_responsavel").value.trim();
+  const status = document.getElementById("cliente_status").value;
+  const mensal = toNumberBR(document.getElementById("cliente_mensal").value);
+  const instagram = document.getElementById("cliente_instagram").value.trim();
+  const site = document.getElementById("cliente_site").value.trim();
+  const obs = document.getElementById("cliente_obs").value.trim();
+
+  if(!nome){
+    alert("Preencha o nome do cliente.");
+    return;
+  }
+
+  // 🔥 SE ESTIVER EDITANDO
+  if(editingClienteId){
+    const index = clientes.findIndex(c => c.id === editingClienteId);
+    if(index === -1){
+      editingClienteId = null;
+      alert("Cliente não encontrado.");
+      return;
+    }
+
+    clientes[index] = {
+      ...clientes[index],
+      nome,
+      telefone,
+      responsavel,
+      status,
+      mensal,
+      instagram,
+      site,
+      obs,
+      updated_at: new Date().toISOString()
+    };
+
+    saveClientes();
+    renderClientes();
+    limparClienteForm();
+    editingClienteId = null;
+
+    document.getElementById("btnSalvarCliente").textContent = "Salvar";
+
+    alert("Cliente atualizado!");
+    return;
+  }
+
+  // 🔥 NOVO CLIENTE
+  const cliente = {
+    id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2),
+    nome,
+    telefone,
+    responsavel,
+    status,
+    mensal,
+    instagram,
+    site,
+    obs,
+    created_at: new Date().toISOString()
+  };
+
+  clientes.unshift(cliente);
+  saveClientes();
+  renderClientes();
+  limparClienteForm();
+
+  alert("Cliente salvo!");
+}
+
+function toggleStatusCliente(id){
+  const c = clientes.find(x => x.id === id);
+  if(!c) return;
+  c.status = (c.status === "ativo") ? "inativo" : "ativo";
+  saveClientes();
+  renderClientes();
+}
+
+function removerCliente(id){
+  if(!confirm("Remover este cliente? (isso apaga o histórico dele)")) return;
+  clientes = clientes.filter(x => x.id !== id);
+  saveClientes();
+  renderClientes();
+}
+
+function calcTotalAtivos(){
+  const total = clientes
+    .filter(c => c.status === "ativo")
+    .reduce((acc, c) => acc + (Number(c.mensal) || 0), 0);
+
+  const el = document.getElementById("total_mensal_ativos");
+  if(el) el.textContent = formatBRL(total);
+}
+
+function renderClientes(){
+  const lista = document.getElementById("lista_clientes");
+  if(!lista) return;
+
+  const q = (document.getElementById("clienteSearch")?.value || "").trim().toLowerCase();
+  const filtro = document.getElementById("clienteFiltro")?.value || "todos";
+
+  let data = [...clientes];
+
+  if(filtro !== "todos"){
+    data = data.filter(c => c.status === filtro);
+  }
+
+  if(q){
+    data = data.filter(c => {
+      return (
+        (c.nome || "").toLowerCase().includes(q) ||
+        (c.instagram || "").toLowerCase().includes(q) ||
+        (c.responsavel || "").toLowerCase().includes(q) ||
+        (c.telefone || "").toLowerCase().includes(q)
+      );
+    });
+  }
+
+  if(data.length === 0){
+    lista.innerHTML = `<div class="muted">Nenhum cliente encontrado.</div>`;
+    calcTotalAtivos();
+    return;
+  }
+
+  lista.innerHTML = data.map(c => {
+    const statusBadge = c.status === "ativo"
+      ? `<span class="pill">Ativo</span>`
+      : `<span class="pill" style="opacity:.6;">Inativo</span>`;
+
+    const mensalTxt = formatBRL(Number(c.mensal) || 0);
+    const ig = c.instagram ? c.instagram.replace(/^@/,"@") : "";
+    const site = c.site ? c.site : "";
+
+    return `
+      <div class="card" style="margin:10px 0;">
+        <div class="body">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div>
+              <strong style="font-size:16px;">${escapeHtml(c.nome)}</strong>
+              <div class="muted" style="margin-top:4px;">
+                ${statusBadge} • Mensal: <strong>${mensalTxt}</strong>
+              </div>
+            </div>
+
+           <div class="actions" style="margin:0;">
+  <button class="btn" type="button" onclick="editarCliente('${c.id}')">
+    Editar
+  </button>
+
+  <button class="btn" type="button" onclick="toggleStatusCliente('${c.id}')">
+    ${c.status === "ativo" ? "Marcar inativo" : "Marcar ativo"}
+  </button>
+
+  <button class="btn" type="button" onclick="removerCliente('${c.id}')">
+    Remover
+  </button>
+</div>
+
+          <div style="margin-top:10px; display:grid; gap:6px;">
+            ${c.responsavel ? `<div><span class="muted">Responsável:</span> ${escapeHtml(c.responsavel)}</div>` : ""}
+            ${c.telefone ? `<div><span class="muted">Telefone:</span> ${escapeHtml(c.telefone)}</div>` : ""}
+            ${ig ? `<div><span class="muted">Instagram:</span> ${escapeHtml(ig)}</div>` : ""}
+            ${site ? `<div><span class="muted">Site:</span> ${escapeHtml(site)}</div>` : ""}
+            ${c.obs ? `<div><span class="muted">OBS:</span> ${escapeHtml(c.obs)}</div>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  calcTotalAtivos();
+}
+
+function escapeHtml(str){
+  return String(str || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+// Inicializa ao abrir a página
+(function initClientes(){
+  loadClientes();
+  renderClientes();
+})();
 /* Login (DESATIVADO) */
 function isAuthed(){ return true; }
 function requireLogin(){
