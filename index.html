@@ -549,10 +549,6 @@ function loadClientes(){
   }
 }
 
-function saveClientes(){
-  localStorage.setItem(KEY_CLIENTES, JSON.stringify(clientes));
-}
-
 function toNumberBR(v){
   if(!v) return 0;
   // aceita "5.000,50" / "5000,50" / "5000.50" / "5000"
