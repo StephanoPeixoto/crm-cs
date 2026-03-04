@@ -522,8 +522,40 @@ function toast(msg){
 }
 function uid(){ return (crypto?.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2) + Date.now())); }
 
-function showSection(id){
-  document.getElementById("tasks").style.display    = (id==="tasks") ? "grid" : "none";
+async function validarPinClientes(pinDigitado){
+
+  const { data, error } = await supabaseClient
+    .from("app_config")
+    .select("pin_clientes")
+    .eq("id","main")
+    .single();
+
+  if(error){
+    console.error(error);
+    return false;
+  }
+
+  return data.pin_clientes === pinDigitado;
+}
+
+async function showSection(id){
+
+  // 🔒 proteção da aba clientes
+  if(id === "clientes"){
+
+    const pin = prompt("Digite o PIN para acessar clientes:");
+
+    if(!pin) return;
+
+    const permitido = await validarPinClientes(pin);
+
+    if(!permitido){
+      alert("PIN incorreto");
+      return;
+    }
+  }
+
+  document.getElementById("tasks").style.display = (id==="tasks") ? "grid" : "none";
   document.getElementById("calendar").style.display = (id==="calendar") ? "grid" : "none";
   document.getElementById("clientes").style.display = (id==="clientes") ? "grid" : "none";
 
